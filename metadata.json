@@ -1,0 +1,8 @@
+{
+  "name": "Remix ApexStride",
+  "description": "Aplikasi lari futuristik \u0026 komunitas atletik dengan live GPS tracking, pace heatmap visualizer, Google Auth, Firestore sync, dan AI Running Coach bertenaga Gemini 3.1 Pro High Thinking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
