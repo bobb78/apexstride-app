@@ -8,6 +8,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android Release APK
@@ -22,13 +25,21 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure Gradle Wrapper Executable
+        run: |
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          chmod +x gradlew
 
       - name: Build Debug & Release APK
-        run: ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
+        run: |
+          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace || true
 
       - name: Find and Prepare APK
         id: apk_finder
@@ -41,7 +52,7 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: app-apks
           path: release_apks/*.apk
 
       - name: Create GitHub Release
@@ -50,15 +61,15 @@ jobs:
         with:
           files: release_apks/*.apk
           tag_name: ${{ github.ref_name }}
-          name: "Apex Stride Release ${{ github.ref_name }}"
+          name: "ApexStride Release ${{ github.ref_name }}"
           body: |
-            ## 🏃‍♂️ Apex Stride APK Release
+            ## 🏃‍♂️ ApexStride APK Release
             
-            Aplikasi pelacak lari atletik mandiri:
-            - **Pelacakan GPS Presisi**: Hanya menghitung perpindahan nyata saat berlari/berjalan (bukan ayunan tangan di tempat).
-            - **Peta Rute 3D Interaktif**: Visualisasi rute dan elevasi dengan heatmap kecepatan 3 dimensi.
-            - **Analisis Kinerja Atletik**: VO2 Max estimate, zona detak jantung, kalkulator pace & split lomba.
-            - **Riwayat & Jurnal Pribadi**: Catatan latihan lokal Room & sinkronisasi privat.
+            Aplikasi pelacak lari atletik modern:
+            - **Peta Asli & Heatmap Satelit**: Peta jalan & citra satelit bumi asli dengan visualisasi rute interaktif.
+            - **Pelacakan GPS Presisi**: Menghitung jarak, pace, split waktu, dan elevasi.
+            - **Analisis Kinerja Atletik**: Konsistensi pace, estimasi VO2 Max, dan zona detak jantung.
+            - **Penyimpanan Lokal & Privat**: Data tersimpan aman di perangkat via Room Database.
             
             Unduh file `.apk` di bawah dan pasang di perangkat Android Anda.
         env:
