@@ -28,8 +28,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
 
       - name: Create Secrets and Keystores
         run: |
@@ -46,9 +44,9 @@ jobs:
           fi
           chmod +x gradlew || true
 
-      - name: Build Release & Debug APK
+      - name: Build Release APK
         run: |
-          STORE_PASSWORD=password KEY_PASSWORD=password ./gradlew assembleRelease assembleDebug --no-daemon --stacktrace
+          STORE_PASSWORD=password KEY_PASSWORD=password ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Find and Prepare APK
         id: apk_finder
