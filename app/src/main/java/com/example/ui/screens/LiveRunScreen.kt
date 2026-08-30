@@ -26,8 +26,10 @@ import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
@@ -55,8 +57,10 @@ import com.example.data.model.formatPace
 import com.example.service.LiveRunTelemetry
 import com.example.service.RunTrackingState
 import com.example.ui.components.ElevationProfileCanvas
-import com.example.ui.components.PaceHeatmapCanvas
+import com.example.ui.components.RealRouteMapView
 import com.example.ui.components.StatTile
+import com.example.ui.theme.AcidYellow
+import com.example.ui.theme.BlazeOrange
 import com.example.ui.theme.DarkObsidian
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.HyperCoral
@@ -76,7 +80,7 @@ fun LiveRunScreen(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
-    onToggleVoiceCoach: () -> Unit,
+    onToggleVoiceCoach: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isMapViewActive by remember { mutableStateOf(false) }
@@ -91,7 +95,7 @@ fun LiveRunScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // 1. Immersive UI Header
+        // 1. Athletic Session Header with GPS Movement Badge
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -100,18 +104,34 @@ fun LiveRunScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (telemetry.isActivelyMoving) NeonLime else HyperCoral)
+                    )
+                    Text(
+                        text = if (telemetry.state == RunTrackingState.RUNNING) {
+                            if (telemetry.isActivelyMoving) "PELACAKAN AKTIF" else "SENSOR: DIAM"
+                        } else {
+                            "SESI DIJEDA"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (telemetry.isActivelyMoving) NeonLime else TextSecondary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
+                }
+
                 Text(
-                    text = if (telemetry.state == RunTrackingState.RUNNING) "SESSION ACTIVE" else "SESSION PAUSED",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (telemetry.state == RunTrackingState.RUNNING) NeonLime else TextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    text = if (telemetry.isSimulationMode) "GBK Circuit Sprint" else "Outdoor Stride",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
+                    text = telemetry.movementStatusText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (telemetry.isActivelyMoving) ElectricCyan else TextMuted,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
@@ -119,12 +139,12 @@ fun LiveRunScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Voice Coach Button
+                // Voice Guidance Button
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.5f))
+                        .background(SurfaceDark.copy(alpha = 0.6f))
                         .border(1.dp, SurfaceBorder, CircleShape)
                         .clickable { onToggleVoiceCoach() },
                     contentAlignment = Alignment.Center
@@ -139,7 +159,7 @@ fun LiveRunScreen(
             }
         }
 
-        // 2. Main Center: Giant Immersive Distance Metric or Route Map
+        // 2. Main Center: Giant Telemetry or Real Geographic GPS Route Map
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -147,20 +167,19 @@ fun LiveRunScreen(
             contentAlignment = Alignment.Center
         ) {
             if (isMapViewActive) {
-                PaceHeatmapCanvas(
+                RealRouteMapView(
                     points = telemetry.points,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(vertical = 12.dp),
-                    isLive = true,
-                    showGrid = true
+                        .padding(vertical = 10.dp),
+                    isLive = true
                 )
             } else {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Soft Neon Volt Atmospheric Glow
+                    // Soft Volt Atmospheric Glow
                     Box(
                         modifier = Modifier
                             .size(220.dp)
@@ -182,44 +201,72 @@ fun LiveRunScreen(
                             lineHeight = 90.sp
                         )
                         Text(
-                            text = "KILOMETERS",
+                            text = "KILOMETER",
                             style = MaterialTheme.typography.labelMedium,
                             color = NeonLime,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 4.sp
                         )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Current Speed Pill
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(SurfaceDark)
+                                .border(1.dp, SurfaceBorder, RoundedCornerShape(20.dp))
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DirectionsRun,
+                                    contentDescription = "Cadence",
+                                    tint = NeonLime,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "${telemetry.currentCadenceSpm} SPM • ${String.format(Locale.US, "%.1f", telemetry.currentSpeedKmh)} KM/H",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // 3. Immersive 2-Column Metrics & Elevation Profile
+        // 3. 2-Column Metrics & Elevation Profile
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 2-Column Grid for Pace & BPM
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatTile(
-                    label = "Avg Pace",
+                    label = "Pace Rata-rata",
                     value = formatPace(telemetry.avgPaceSecondsPerKm),
-                    unit = "",
+                    unit = "/KM",
                     icon = Icons.Default.Speed,
                     accentColor = NeonLime,
                     modifier = Modifier.weight(1f)
                 )
 
                 StatTile(
-                    label = "Heart Rate",
+                    label = "Detak Jantung",
                     value = "${telemetry.estimatedHeartRateBpm}",
                     unit = "BPM",
                     icon = Icons.Default.Favorite,
-                    accentColor = NeonLime,
+                    accentColor = HyperCoral,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -228,7 +275,7 @@ fun LiveRunScreen(
             ElevationProfileCanvas(splits = telemetry.splits)
         }
 
-        // 4. Immersive Capsule Footer Controls
+        // 4. Action Controls & Map Switcher
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -255,7 +302,6 @@ fun LiveRunScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Play/Pause circular white button
                         if (telemetry.state == RunTrackingState.RUNNING) {
                             Box(
                                 modifier = Modifier
@@ -281,7 +327,7 @@ fun LiveRunScreen(
                                         .clip(CircleShape)
                                         .background(NeonLime)
                                         .clickable { onResume() }
-                                        .testTag("resume_run_button"),
+                                    .testTag("resume_run_button"),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -323,7 +369,7 @@ fun LiveRunScreen(
                     }
                 }
 
-                // Circular Neon Volt Map / Dial Switcher
+                // Peta / Telemetry Switcher Button
                 Box(
                     modifier = Modifier
                         .size(76.dp)
@@ -334,7 +380,7 @@ fun LiveRunScreen(
                 ) {
                     Icon(
                         imageVector = if (isMapViewActive) Icons.Default.Speed else Icons.Default.Map,
-                        contentDescription = "Toggle Map",
+                        contentDescription = "Buka Peta Asli",
                         tint = DarkObsidian,
                         modifier = Modifier.size(32.dp)
                     )

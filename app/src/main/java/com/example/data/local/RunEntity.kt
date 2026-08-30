@@ -10,6 +10,7 @@ import com.example.data.model.RunActivity
 data class RunEntity(
     @PrimaryKey val id: String,
     val title: String,
+    val activityType: String = "Lari",
     val timestamp: Long,
     val durationSeconds: Long,
     val distanceMeters: Double,
@@ -21,12 +22,11 @@ data class RunEntity(
     val avgHeartRateBpm: Int,
     val routePointsJson: String,
     val splitsJson: String,
-    val aiAnalysis: String?,
     val isSyncedToCloud: Boolean = false,
-    val likesCount: Int = 0,
     val feelingTag: String = "🔥 Kuat",
     val shoeName: String = "Nike Alphafly 3",
-    val weatherCondition: String = "Cerah 28°C"
+    val weatherCondition: String = "Cerah 28°C",
+    val notes: String = ""
 ) {
     fun toDomain(
         routePoints: List<GPSPoint>,
@@ -35,6 +35,7 @@ data class RunEntity(
         return RunActivity(
             id = id,
             title = title,
+            activityType = activityType,
             timestamp = timestamp,
             durationSeconds = durationSeconds,
             distanceMeters = distanceMeters,
@@ -46,12 +47,11 @@ data class RunEntity(
             avgHeartRateBpm = avgHeartRateBpm,
             routePoints = routePoints,
             splits = splits,
-            aiAnalysis = aiAnalysis,
             isSyncedToCloud = isSyncedToCloud,
-            likesCount = likesCount,
             feelingTag = feelingTag,
             shoeName = shoeName,
-            weatherCondition = weatherCondition
+            weatherCondition = weatherCondition,
+            notes = notes
         )
     }
 
@@ -64,6 +64,7 @@ data class RunEntity(
             return RunEntity(
                 id = domain.id,
                 title = domain.title,
+                activityType = domain.activityType,
                 timestamp = domain.timestamp,
                 durationSeconds = domain.durationSeconds,
                 distanceMeters = domain.distanceMeters,
@@ -75,12 +76,11 @@ data class RunEntity(
                 avgHeartRateBpm = domain.avgHeartRateBpm,
                 routePointsJson = routePointsJson,
                 splitsJson = splitsJson,
-                aiAnalysis = domain.aiAnalysis,
                 isSyncedToCloud = domain.isSyncedToCloud,
-                likesCount = domain.likesCount,
                 feelingTag = domain.feelingTag,
                 shoeName = domain.shoeName,
-                weatherCondition = domain.weatherCondition
+                weatherCondition = domain.weatherCondition,
+                notes = domain.notes
             )
         }
     }

@@ -21,24 +21,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -49,21 +46,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.RunActivity
 import com.example.data.model.UserProfile
-import com.example.ui.components.PaceHeatmapCanvas
+import com.example.ui.components.PaceHeatmap3DCanvas
 import com.example.ui.theme.AcidYellow
 import com.example.ui.theme.BlazeOrange
 import com.example.ui.theme.DarkObsidian
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.HyperCoral
 import com.example.ui.theme.NeonLime
-import com.example.ui.theme.SlateDark
 import com.example.ui.theme.SurfaceBorder
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceElevated
@@ -76,16 +71,17 @@ import java.util.Locale
 fun HomeScreen(
     userProfile: UserProfile,
     recentRuns: List<RunActivity>,
-    onStartRun: (isSimulation: Boolean) -> Unit,
+    onStartRun: (isSimulation: Boolean, activityType: String) -> Unit,
     onViewRunDetail: (String) -> Unit,
-    onNavigateToCoach: () -> Unit,
+    onNavigateToAnalytics: () -> Unit,
+    onNavigateToHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(DarkObsidian),
-        contentPadding = PaddingValues(bottom = 90.dp)
+        contentPadding = PaddingValues(bottom = 100.dp)
     ) {
         // 1. Hero Atmospheric Header
         item {
@@ -103,18 +99,19 @@ fun HomeScreen(
             )
         }
 
-        // 3. AI Coach Intelligence Callout
+        // 3. Quick Mode Selector: Lari vs Jalan vs Simulasi
         item {
-            AiCoachQuickCard(
-                onNavigateToCoach = onNavigateToCoach,
+            ActivityModeLauncher(
+                onStartRun = onStartRun,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
-        // 4. Quick Mode Launcher (Outdoor GPS vs Senayan Circuit Simulator)
+        // 4. Personal Athletic Overview Card (VO2 Max & PB Quick Stat)
         item {
-            RunModeSelector(
-                onStartRun = onStartRun,
+            PersonalAnalyticsQuickCard(
+                userProfile = userProfile,
+                onNavigateToAnalytics = onNavigateToAnalytics,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
@@ -147,20 +144,59 @@ fun HomeScreen(
                 }
 
                 Text(
-                    text = "${recentRuns.size} Sesi Tersimpan",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
+                    text = "Lihat Semua",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NeonLime,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onNavigateToHistory() }
                 )
             }
         }
 
-        // 6. Recent Activity Cards with Pace Heatmaps
-        items(recentRuns) { run ->
-            ActivityRunCard(
-                run = run,
-                onClick = { onViewRunDetail(run.id) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-            )
+        // 6. Recent Activity Cards with 3D/2D Route previews
+        if (recentRuns.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(SurfaceDark)
+                        .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsRun,
+                            contentDescription = "No Runs",
+                            tint = TextMuted,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            text = "Belum ada sesi olahraga tercatat.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "Tekan tombol Mulai Lari di atas untuk merekam sesi pertamamu!",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                    }
+                }
+            }
+        } else {
+            items(recentRuns.take(5)) { run ->
+                ActivityRunCard(
+                    run = run,
+                    onClick = { onViewRunDetail(run.id) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+            }
         }
     }
 }
@@ -168,12 +204,12 @@ fun HomeScreen(
 @Composable
 fun HeroHeaderSection(
     userProfile: UserProfile,
-    onStartRun: (isSimulation: Boolean) -> Unit
+    onStartRun: (isSimulation: Boolean, activityType: String) -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(280.dp)
+            .height(270.dp)
     ) {
         // Hero Background Image with dark gradient overlay
         Image(
@@ -191,7 +227,7 @@ fun HeroHeaderSection(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            DarkObsidian.copy(alpha = 0.7f),
+                            DarkObsidian.copy(alpha = 0.75f),
                             DarkObsidian
                         )
                     )
@@ -213,7 +249,7 @@ fun HeroHeaderSection(
             ) {
                 Column {
                     Text(
-                        text = "SELAMAT BERLATIH",
+                        text = "SELAMAT DATANG",
                         style = MaterialTheme.typography.labelSmall,
                         color = ElectricCyan,
                         letterSpacing = 1.5.sp,
@@ -246,7 +282,7 @@ fun HeroHeaderSection(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "${userProfile.currentStreakDays} HARI",
+                            text = "${userProfile.currentStreakDays} Hari",
                             style = MaterialTheme.typography.labelMedium,
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold
@@ -257,10 +293,10 @@ fun HeroHeaderSection(
 
             // Big Start Button
             Button(
-                onClick = { onStartRun(false) },
+                onClick = { onStartRun(false, "Lari") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
+                    .height(58.dp)
                     .testTag("start_run_button"),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -276,10 +312,10 @@ fun HeroHeaderSection(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Start Run",
                         tint = DarkObsidian,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                     Text(
-                        text = "MULAI LARI SEKARANG",
+                        text = "MULAI LARI OUTDOOR",
                         style = MaterialTheme.typography.titleMedium,
                         color = DarkObsidian,
                         fontWeight = FontWeight.Black,
@@ -301,9 +337,9 @@ fun WeeklyProgressCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(32.dp))
-            .background(SurfaceDark.copy(alpha = 0.6f))
-            .border(1.dp, SurfaceBorder.copy(alpha = 0.6f), RoundedCornerShape(32.dp))
+            .clip(RoundedCornerShape(28.dp))
+            .background(SurfaceDark.copy(alpha = 0.8f))
+            .border(1.dp, SurfaceBorder, RoundedCornerShape(28.dp))
             .padding(20.dp)
     ) {
         Column {
@@ -314,11 +350,11 @@ fun WeeklyProgressCard(
             ) {
                 Column {
                     Text(
-                        text = "TARGET JARAK MINGGU INI",
+                        text = "TARGET MINGGUAN",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 1.2.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
@@ -343,7 +379,7 @@ fun WeeklyProgressCard(
 
                 Box(
                     modifier = Modifier
-                        .size(50.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(SurfaceElevated),
                     contentAlignment = Alignment.Center
@@ -357,7 +393,7 @@ fun WeeklyProgressCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             LinearProgressIndicator(
                 progress = { progress },
@@ -373,18 +409,112 @@ fun WeeklyProgressCard(
 }
 
 @Composable
-fun AiCoachQuickCard(
-    onNavigateToCoach: () -> Unit,
+fun ActivityModeLauncher(
+    onStartRun: (isSimulation: Boolean, activityType: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Outdoor Walking Mode
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(SurfaceDark)
+                .border(1.dp, SurfaceBorder, RoundedCornerShape(18.dp))
+                .clickable { onStartRun(false, "Jalan Kaki") }
+                .padding(14.dp)
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(ElectricCyan.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DirectionsWalk,
+                        contentDescription = "Walk",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Jalan Kaki",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Pelacakan rute & langkah",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        // Indoor Simulation Mode
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(SurfaceDark)
+                .border(1.dp, SurfaceBorder, RoundedCornerShape(18.dp))
+                .clickable { onStartRun(true, "Lari") }
+                .padding(14.dp)
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(AcidYellow.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FlashOn,
+                        contentDescription = "Simulasi",
+                        tint = AcidYellow,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Mode Uji Coba",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Simulasi rute di peta asli",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PersonalAnalyticsQuickCard(
+    userProfile: UserProfile,
+    onNavigateToAnalytics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(32.dp))
-            .background(SurfaceDark.copy(alpha = 0.6f))
-            .border(1.dp, SurfaceBorder.copy(alpha = 0.6f), RoundedCornerShape(32.dp))
-            .clickable { onNavigateToCoach() }
-            .padding(20.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(SurfaceDark.copy(alpha = 0.8f))
+            .border(1.dp, SurfaceBorder, RoundedCornerShape(24.dp))
+            .clickable { onNavigateToAnalytics() }
+            .padding(18.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -400,43 +530,27 @@ fun AiCoachQuickCard(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(ElectricCyan.copy(alpha = 0.15f)),
+                        .background(NeonLime.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "AI Coach",
-                        tint = ElectricCyan,
+                        imageVector = Icons.Default.Insights,
+                        contentDescription = "Analytics",
+                        tint = NeonLime,
                         modifier = Modifier.size(24.dp)
                     )
                 }
 
                 Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "APEX INTELLIGENCE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ElectricCyan,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(NeonLime)
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        ) {
-                            Text(
-                                text = "HIGH THINKING",
-                                style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Black, color = DarkObsidian)
-                            )
-                        }
-                    }
                     Text(
-                        text = "Evaluasi biomekanik, cadence & recovery window.",
+                        text = "STATISTIK & REKOR LARI",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NeonLime,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "Pantau rekor jarak, kecepatan, dan target finish.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextPrimary
                     )
@@ -445,84 +559,9 @@ fun AiCoachQuickCard(
 
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Open Coach",
-                tint = ElectricCyan
+                contentDescription = "Buka Analisis",
+                tint = NeonLime
             )
-        }
-    }
-}
-
-@Composable
-fun RunModeSelector(
-    onStartRun: (isSimulation: Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        // Outdoor GPS Mode
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(SurfaceDark)
-                .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
-                .clickable { onStartRun(false) }
-                .padding(14.dp)
-        ) {
-            Column {
-                Icon(
-                    imageVector = Icons.Default.DirectionsRun,
-                    contentDescription = "GPS Run",
-                    tint = NeonLime,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Outdoor GPS",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Pelacak rute live & telemetry",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
-                )
-            }
-        }
-
-        // GBK Circuit Simulator Mode
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(SurfaceDark)
-                .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
-                .clickable { onStartRun(true) }
-                .padding(14.dp)
-        ) {
-            Column {
-                Icon(
-                    imageVector = Icons.Default.FlashOn,
-                    contentDescription = "Simulation",
-                    tint = ElectricCyan,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Simulasi GBK",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Uji live HUD & heatmap",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
-                )
-            }
         }
     }
 }
@@ -550,12 +589,23 @@ fun ActivityRunCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(
-                        text = run.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (run.activityType == "Lari") Icons.Default.DirectionsRun else Icons.Default.DirectionsWalk,
+                            contentDescription = run.activityType,
+                            tint = if (run.activityType == "Lari") NeonLime else ElectricCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = run.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Text(
                         text = run.formattedDate,
                         style = MaterialTheme.typography.labelSmall,
@@ -586,14 +636,15 @@ fun ActivityRunCard(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Route Canvas Map Thumbnail
-                PaceHeatmapCanvas(
+                // 3D/2D Route Canvas Map Thumbnail
+                PaceHeatmap3DCanvas(
                     points = run.routePoints,
                     modifier = Modifier
                         .size(100.dp)
                         .clip(RoundedCornerShape(12.dp)),
                     isLive = false,
-                    showGrid = false
+                    showGrid = false,
+                    initialIs3D = true
                 )
 
                 // Stats Grid

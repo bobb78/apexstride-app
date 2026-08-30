@@ -3,34 +3,29 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.model.ChallengeItem
-import com.example.data.model.CommunityPost
-import com.example.data.model.CommunityRoute
 import com.example.data.model.PerformanceMetrics
 import com.example.data.model.RunActivity
 import com.example.data.model.UserProfile
 import com.example.data.remote.FirebaseAuthManager
-import com.example.data.remote.GeminiCoachApi
 import com.example.data.repository.RunRepository
 import com.example.service.LiveRunTelemetry
 import com.example.service.LiveRunTracker
-import com.example.service.RunTrackingState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 enum class AppDestination {
     HOME,
+    HISTORY,
     LIVE_RUN,
     RUN_SUMMARY,
     ANALYTICS,
-    ROUTES,
-    COACH,
-    COMMUNITY,
     PROFILE
 }
 
@@ -52,13 +47,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         runRepository.computePerformanceMetrics(runs)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PerformanceMetrics())
 
-    // Community feed, challenges, and routes
-    val communityPosts: StateFlow<List<CommunityPost>> = runRepository.communityPosts
-    val challenges: StateFlow<List<ChallengeItem>> = runRepository.challenges
-    val communityRoutes: StateFlow<List<CommunityRoute>> = runRepository.communityRoutes
+    // User profile combined with real recorded runs
+    val userProfile: StateFlow<UserProfile> = combine(
+        authManager.currentUserProfile,
+        allRuns
+    ) { baseProfile, runs ->
+        val totalDistKm = runs.sumOf { it.distanceKm }
+        val totalSecs = runs.sumOf { it.durationSeconds }
+        val totalHrs = totalSecs / 3600.0
+        val runsCount = runs.size
 
-    // User profile and Auth
-    val userProfile: StateFlow<UserProfile> = authManager.currentUserProfile
+        // Calculate weekly progress (past 7 days)
+        val sevenDaysAgo = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000)
+        val weeklyKm = runs.filter { it.timestamp >= sevenDaysAgo }.sumOf { it.distanceKm }
+
+        // Find personal records
+        val b5k = runs.filter { it.distanceKm >= 5.0 }.minOfOrNull { it.durationSeconds } ?: 0L
+        val b10k = runs.filter { it.distanceKm >= 10.0 }.minOfOrNull { it.durationSeconds } ?: 0L
+        val b21k = runs.filter { it.distanceKm >= 21.0 }.minOfOrNull { it.durationSeconds } ?: 0L
+
+        val streak = if (runs.isEmpty()) 0 else {
+            // Number of distinct days active
+            runs.map { it.timestamp / (24 * 60 * 60 * 1000) }.distinct().size
+        }
+
+        val shoeMileage = runs.filter { it.shoeName == baseProfile.favoriteShoe }.sumOf { it.distanceKm }
+
+        baseProfile.copy(
+            totalDistanceKm = (totalDistKm * 10).roundToInt() / 10.0,
+            totalRunsCount = runsCount,
+            totalDurationHours = (totalHrs * 10).roundToInt() / 10.0,
+            weeklyProgressKm = (weeklyKm * 10).roundToInt() / 10.0,
+            currentStreakDays = streak,
+            best5kSeconds = b5k,
+            best10kSeconds = b10k,
+            best21kSeconds = b21k,
+            shoeMileageKm = (shoeMileage * 10).roundToInt() / 10.0
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserProfile())
+
     val isSignedIn: StateFlow<Boolean> = authManager.isSignedIn
 
     // Live Run Telemetry
@@ -68,21 +95,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _summaryRun = MutableStateFlow<RunActivity?>(null)
     val summaryRun: StateFlow<RunActivity?> = _summaryRun.asStateFlow()
 
-    private val _isLoadingAi = MutableStateFlow(false)
-    val isLoadingAi: StateFlow<Boolean> = _isLoadingAi.asStateFlow()
-
     fun navigateTo(destination: AppDestination) {
         _currentDestination.value = destination
     }
 
-    fun startRun(isSimulation: Boolean) {
-        liveRunTracker.startRun(isSimulation = isSimulation)
-        _currentDestination.value = AppDestination.LIVE_RUN
-    }
-
-    fun startRouteRun(route: CommunityRoute) {
-        // Start run configured with this community route waypoint guidance
-        liveRunTracker.startRun(isSimulation = true)
+    fun startRun(isSimulation: Boolean = false, activityType: String = "Lari") {
+        liveRunTracker.startRun(isSimulation = isSimulation, activityType = activityType)
         _currentDestination.value = AppDestination.LIVE_RUN
     }
 
@@ -102,9 +120,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val completedRun = liveRunTracker.finishRun()
         _summaryRun.value = completedRun
         _currentDestination.value = AppDestination.RUN_SUMMARY
-
-        // Automatically trigger Gemini 3.1 Pro High Thinking Deep Analysis
-        generateAiAuditForSummary(completedRun)
     }
 
     fun viewRunDetail(runId: String) {
@@ -117,28 +132,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun generateAiAuditForSummary(targetRun: RunActivity? = _summaryRun.value) {
-        val run = targetRun ?: return
-        _isLoadingAi.value = true
-        viewModelScope.launch {
-            val result = GeminiCoachApi.analyzeRunTelemetry(run)
-            val analysisText = result.getOrNull()
-            if (analysisText != null) {
-                val updatedRun = run.copy(aiAnalysis = analysisText)
-                _summaryRun.value = updatedRun
-                runRepository.updateRunAiAnalysis(run.id, analysisText)
-            }
-            _isLoadingAi.value = false
-        }
-    }
-
-    fun saveSummaryAndClose(title: String, feelingTag: String, shoeName: String) {
+    fun saveSummaryAndClose(title: String, feelingTag: String, shoeName: String, notes: String = "") {
         val current = _summaryRun.value ?: return
         viewModelScope.launch {
             val updated = current.copy(
                 title = title,
                 feelingTag = feelingTag,
-                shoeName = shoeName
+                shoeName = shoeName,
+                notes = notes
             )
             runRepository.saveRun(updated, userProfile.value.uid)
             _summaryRun.value = null
@@ -165,42 +166,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _currentDestination.value = AppDestination.HOME
             }
         }
-    }
-
-    fun toggleBoost(postId: String) {
-        runRepository.toggleBoostPost(postId)
-    }
-
-    fun toggleJoinChallenge(challengeId: String) {
-        runRepository.toggleJoinChallenge(challengeId)
-    }
-
-    fun toggleBookmarkRoute(routeId: String) {
-        runRepository.toggleBookmarkRoute(routeId)
-    }
-
-    fun createCustomChallenge(
-        title: String,
-        subtitle: String,
-        targetKm: Double,
-        daysLeft: Int,
-        category: String,
-        rewardBadge: String,
-        rewardXp: Int
-    ) {
-        runRepository.createCustomChallenge(
-            title = title,
-            subtitle = subtitle,
-            targetKm = targetKm,
-            daysLeft = daysLeft,
-            category = category,
-            rewardBadge = rewardBadge,
-            rewardXp = rewardXp
-        )
-    }
-
-    fun cheerParticipant(challengeId: String, userId: String) {
-        runRepository.cheerParticipant(challengeId, userId)
     }
 
     fun signInWithGoogle() {

@@ -16,30 +16,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,12 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.PerformanceMetrics
 import com.example.data.model.RunActivity
+import com.example.data.model.formatDuration
+import com.example.data.model.formatPace
 import com.example.ui.components.StatTile
 import com.example.ui.theme.AcidYellow
 import com.example.ui.theme.BlazeOrange
@@ -61,7 +60,6 @@ import com.example.ui.theme.DarkObsidian
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.HyperCoral
 import com.example.ui.theme.NeonLime
-import com.example.ui.theme.SlateDark
 import com.example.ui.theme.SurfaceBorder
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceElevated
@@ -74,17 +72,21 @@ import java.util.Locale
 fun PerformanceAnalyticsScreen(
     metrics: PerformanceMetrics,
     recentRuns: List<RunActivity>,
-    onAskAiCoach: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedDistanceKm by remember { mutableFloatStateOf(5.0f) }
+    var targetPaceMinutes by remember { mutableFloatStateOf(5.0f) } // 5'00"/km
+
+    val calculatedTargetSeconds = (selectedDistanceKm * targetPaceMinutes * 60).toLong()
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(DarkObsidian),
-        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 90.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 100.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
+        // 1. Header
         item {
             Column {
                 Row(
@@ -95,10 +97,10 @@ fun PerformanceAnalyticsScreen(
                         imageVector = Icons.Default.Insights,
                         contentDescription = "Analytics",
                         tint = NeonLime,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                     Text(
-                        text = "ANALISIS KINERJA CERDAS",
+                        text = "STATISTIK & KINERJA",
                         style = MaterialTheme.typography.labelSmall,
                         color = NeonLime,
                         fontWeight = FontWeight.Bold,
@@ -107,7 +109,7 @@ fun PerformanceAnalyticsScreen(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Telemetri & Biomekanik Atletik",
+                    text = "Analisis Lari & Target Lomba",
                     style = MaterialTheme.typography.headlineSmall,
                     color = TextPrimary,
                     fontWeight = FontWeight.Black
@@ -115,7 +117,7 @@ fun PerformanceAnalyticsScreen(
             }
         }
 
-        // 1. VO2 Max Hero Card
+        // 2. VO2 Max Hero Card
         item {
             Box(
                 modifier = Modifier
@@ -148,11 +150,11 @@ fun PerformanceAnalyticsScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "${metrics.vo2MaxEstimate}",
-                                fontSize = 48.sp,
+                                text = if (metrics.vo2MaxEstimate > 0) "${metrics.vo2MaxEstimate}" else "--",
+                                fontSize = 46.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeonLime,
-                                lineHeight = 50.sp
+                                lineHeight = 48.sp
                             )
                             Text(
                                 text = "ml/kg/min",
@@ -169,7 +171,7 @@ fun PerformanceAnalyticsScreen(
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = metrics.vo2MaxCategory,
+                                text = if (metrics.vo2MaxEstimate > 0) metrics.vo2MaxCategory else "Mulai sesi lari untuk hitung VO2 Max",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ElectricCyan
@@ -183,7 +185,7 @@ fun PerformanceAnalyticsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            progress = { metrics.vo2MaxEstimate / 70f },
+                            progress = { if (metrics.vo2MaxEstimate > 0) metrics.vo2MaxEstimate / 70f else 0f },
                             modifier = Modifier.fillMaxSize(),
                             color = NeonLime,
                             trackColor = SurfaceElevated,
@@ -192,7 +194,7 @@ fun PerformanceAnalyticsScreen(
                         Icon(
                             imageVector = Icons.Default.TrendingUp,
                             contentDescription = "Trend",
-                            tint = NeonLime,
+                            tint = if (metrics.vo2MaxEstimate > 0) NeonLime else TextMuted,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -200,10 +202,10 @@ fun PerformanceAnalyticsScreen(
             }
         }
 
-        // 2. Pace & Biomechanics Metric Grid
+        // 3. Pace & Biomechanics Metric Grid
         item {
             Text(
-                text = "METRIK BIOMEKANIK & EFISIENSI",
+                text = "METRIK EFISIENSI LARI",
                 style = MaterialTheme.typography.labelSmall,
                 color = ElectricCyan,
                 fontWeight = FontWeight.Bold,
@@ -211,23 +213,25 @@ fun PerformanceAnalyticsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            val hasData = recentRuns.isNotEmpty()
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     StatTile(
-                        label = "Pace Consistency",
-                        value = "${metrics.paceConsistencyScore}%",
-                        unit = "INDEX",
+                        label = "Konsistensi Pace",
+                        value = if (hasData) "${metrics.paceConsistencyScore}%" else "--",
+                        unit = "SKOR",
                         icon = Icons.Default.Timeline,
                         accentColor = NeonLime,
                         modifier = Modifier.weight(1f)
                     )
 
                     StatTile(
-                        label = "Avg Cadence",
-                        value = "${metrics.avgCadenceSpm}",
+                        label = "Cadence Rata-rata",
+                        value = if (hasData) "${metrics.avgCadenceSpm}" else "--",
                         unit = "SPM",
                         icon = Icons.Default.Speed,
                         accentColor = ElectricCyan,
@@ -240,8 +244,8 @@ fun PerformanceAnalyticsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     StatTile(
-                        label = "Ground Contact",
-                        value = "${metrics.groundContactTimeMs}",
+                        label = "Waktu Kontak Kaki",
+                        value = if (hasData) "${metrics.groundContactTimeMs}" else "--",
                         unit = "MS",
                         icon = Icons.Default.DirectionsRun,
                         accentColor = BlazeOrange,
@@ -249,8 +253,8 @@ fun PerformanceAnalyticsScreen(
                     )
 
                     StatTile(
-                        label = "Cardiac Drift",
-                        value = "${metrics.cardiacDriftPercentage}%",
+                        label = "Stabilitas Jantung",
+                        value = if (hasData) "${metrics.cardiacDriftPercentage}%" else "--",
                         unit = "DRIFT",
                         icon = Icons.Default.Favorite,
                         accentColor = HyperCoral,
@@ -260,7 +264,7 @@ fun PerformanceAnalyticsScreen(
             }
         }
 
-        // 3. Heart Rate Zones Distribution
+        // 4. Heart Rate Zones Distribution
         item {
             Column(
                 modifier = Modifier
@@ -271,6 +275,7 @@ fun PerformanceAnalyticsScreen(
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val hasHrData = recentRuns.isNotEmpty()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -284,9 +289,9 @@ fun PerformanceAnalyticsScreen(
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = "Aerobic Base 52%",
+                        text = if (hasHrData) "Aerobic Base 52%" else "Belum Ada Data",
                         style = MaterialTheme.typography.labelSmall,
-                        color = NeonLime,
+                        color = if (hasHrData) NeonLime else TextMuted,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -332,7 +337,7 @@ fun PerformanceAnalyticsScreen(
             }
         }
 
-        // 4. Race Time Predictor (AI Calibrated)
+        // 5. Race Time Predictor
         item {
             Column(
                 modifier = Modifier
@@ -347,7 +352,7 @@ fun PerformanceAnalyticsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Default.EmojiEvents, contentDescription = "Race", tint = AcidYellow, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.EmojiEvents, contentDescription = "Race", tint = AcidYellow, modifier = Modifier.size(18.dp))
                     Text(
                         text = "PREDIKSI WAKTU LOMBA (RACE TIME PREDICTOR)",
                         style = MaterialTheme.typography.labelSmall,
@@ -384,65 +389,127 @@ fun PerformanceAnalyticsScreen(
             }
         }
 
-        // 5. Smart Personalized AI Coaching Feedback
+        // 6. Interactive Target Pace & Split Calculator
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(SurfaceDark, SurfaceElevated)
-                        )
-                    )
-                    .border(1.dp, NeonLime.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                    .background(SurfaceDark)
+                    .border(1.dp, SurfaceBorder, RoundedCornerShape(24.dp))
                     .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "AI", tint = NeonLime, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = Icons.Default.Calculate,
+                        contentDescription = "Calculator",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
                     Text(
-                        text = "SARAN LATIHAN TERPERSONALISASI",
+                        text = "KALKULATOR TARGET PACE & WAKTU",
                         style = MaterialTheme.typography.labelSmall,
-                        color = NeonLime,
-                        fontWeight = FontWeight.Bold
+                        color = ElectricCyan,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
                     )
                 }
 
-                metrics.smartFeedbackList.forEach { feedback ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("•", color = NeonLime, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = feedback,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
-                        )
+                // Distance Selector Chips
+                Text(text = "Pilih Jarak Lomba:", fontSize = 12.sp, color = TextSecondary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        "5K" to 5.0f,
+                        "10K" to 10.0f,
+                        "21.1K" to 21.1f,
+                        "42.2K" to 42.2f
+                    ).forEach { (label, dist) ->
+                        val isSelected = selectedDistanceKm == dist
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) ElectricCyan else SurfaceElevated)
+                                .clickable { selectedDistanceKm = dist }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) DarkObsidian else TextPrimary
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                // Pace Slider
+                val paceMinutesInt = targetPaceMinutes.toInt()
+                val paceSecondsInt = ((targetPaceMinutes - paceMinutesInt) * 60).toInt()
+                val paceDisplay = String.format(Locale.US, "%d'%02d\"/km", paceMinutesInt, paceSecondsInt)
 
-                Button(
-                    onClick = onAskAiCoach,
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Target Pace:", fontSize = 12.sp, color = TextSecondary)
+                    Text(text = paceDisplay, fontSize = 16.sp, fontWeight = FontWeight.Black, color = NeonLime)
+                }
+
+                Slider(
+                    value = targetPaceMinutes,
+                    onValueChange = { targetPaceMinutes = it },
+                    valueRange = 3.5f..8.5f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = NeonLime,
+                        activeTrackColor = NeonLime,
+                        inactiveTrackColor = SurfaceElevated
+                    )
+                )
+
+                // Computed Output Card
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
-                        .testTag("consult_coach_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonLime,
-                        contentColor = DarkObsidian
-                    )
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(SurfaceElevated)
+                        .padding(14.dp)
                 ) {
-                    Icon(Icons.Default.Psychology, contentDescription = "Coach", modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Konsultasi Rencana Latihan dengan Coach AI", fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "ESTIMASI WAKTU FINISH", fontSize = 10.sp, color = TextMuted, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = formatDuration(calculatedTargetSeconds),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonLime
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(text = "KECEPATAN", fontSize = 10.sp, color = TextMuted, fontWeight = FontWeight.Bold)
+                            val speedKmh = 60.0 / targetPaceMinutes
+                            Text(
+                                text = String.format(Locale.US, "%.1f km/h", speedKmh),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -152,19 +152,19 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Cloud Sync Badge
+                    // Local & Cloud Status Badge
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CloudDone,
-                            contentDescription = "Cloud",
+                            contentDescription = "Storage Status",
                             tint = ElectricCyan,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Tersinkronisasi dengan Firebase Firestore",
+                            text = if (isSignedIn) "Akun Tersambung & Sinkron" else "Penyimpanan Offline & Privat",
                             style = MaterialTheme.typography.labelSmall,
                             color = ElectricCyan
                         )
@@ -242,23 +242,31 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val has5k = userProfile.best5kSeconds > 0
+                val pace5k = if (has5k) (userProfile.best5kSeconds / 5).toInt() else 0
                 PersonalRecordCard(
                     category = "5 KILOMETER",
-                    time = formatDuration(userProfile.best5kSeconds),
-                    pace = "4'24\" /km",
-                    badge = "🏆 Gold PB"
+                    time = if (has5k) formatDuration(userProfile.best5kSeconds) else "--:--",
+                    pace = if (has5k) "${com.example.data.model.formatPace(pace5k)} /km" else "--'--\" /km",
+                    badge = if (has5k) "🏆 Gold PB" else "Belum Ada Rekor"
                 )
+
+                val has10k = userProfile.best10kSeconds > 0
+                val pace10k = if (has10k) (userProfile.best10kSeconds / 10).toInt() else 0
                 PersonalRecordCard(
                     category = "10 KILOMETER",
-                    time = formatDuration(userProfile.best10kSeconds),
-                    pace = "4'36\" /km",
-                    badge = "🥈 Silver PB"
+                    time = if (has10k) formatDuration(userProfile.best10kSeconds) else "--:--",
+                    pace = if (has10k) "${com.example.data.model.formatPace(pace10k)} /km" else "--'--\" /km",
+                    badge = if (has10k) "🥈 Silver PB" else "Belum Ada Rekor"
                 )
+
+                val has21k = userProfile.best21kSeconds > 0
+                val pace21k = if (has21k) (userProfile.best21kSeconds / 21.1).toInt() else 0
                 PersonalRecordCard(
                     category = "HALF MARATHON (21.1 KM)",
-                    time = formatDuration(userProfile.best21kSeconds),
-                    pace = "4'50\" /km",
-                    badge = "🥉 Bronze PB"
+                    time = if (has21k) formatDuration(userProfile.best21kSeconds) else "--:--",
+                    pace = if (has21k) "${com.example.data.model.formatPace(pace21k)} /km" else "--'--\" /km",
+                    badge = if (has21k) "🥉 Bronze PB" else "Belum Ada Rekor"
                 )
             }
         }
@@ -295,7 +303,7 @@ fun ProfileScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "142.8 km tercatat • Kondisi 75% optimal",
+                            text = "${userProfile.shoeMileageKm} km tercatat • Siap untuk sesi latihan",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -308,7 +316,7 @@ fun ProfileScreen(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "CARBON PLATED",
+                            text = "GEAR AKTIF",
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             color = NeonLime
@@ -333,7 +341,7 @@ fun ProfileScreen(
                         contentColor = HyperCoral
                     )
                 ) {
-                    Text("Keluar dari Akun Firebase", fontWeight = FontWeight.Bold)
+                    Text("Keluar dari Akun", fontWeight = FontWeight.Bold)
                 }
             } else {
                 Button(
@@ -348,7 +356,7 @@ fun ProfileScreen(
                         contentColor = DarkObsidian
                     )
                 ) {
-                    Text("Masuk dengan Google (Firebase Auth)", fontWeight = FontWeight.Black)
+                    Text("Masuk dengan Akun Google", fontWeight = FontWeight.Black)
                 }
             }
         }

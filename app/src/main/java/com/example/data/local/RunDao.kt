@@ -30,6 +30,9 @@ interface RunDao {
     @Query("SELECT COUNT(*) FROM runs")
     fun getTotalRunsCount(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM runs")
+    suspend fun getRunsCountDirect(): Int
+
     @Query("SELECT SUM(durationSeconds) FROM runs")
     fun getTotalDurationSeconds(): Flow<Long?>
 }

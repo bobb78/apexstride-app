@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,21 +19,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,12 +43,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,13 +54,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.RunActivity
 import com.example.ui.components.ElevationProfileCanvas
-import com.example.ui.components.PaceHeatmapCanvas
+import com.example.ui.components.RealRouteMapView
 import com.example.ui.components.SplitsBarChart
 import com.example.ui.components.StatTile
 import com.example.ui.theme.AcidYellow
@@ -81,22 +75,20 @@ import com.example.ui.theme.SurfaceElevated
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import kotlinx.coroutines.launch
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RunSummaryScreen(
     run: RunActivity,
-    isLoadingAi: Boolean,
-    onGenerateAiAudit: () -> Unit,
-    onSaveAndClose: (title: String, feeling: String, shoe: String) -> Unit,
+    onSaveAndClose: (title: String, feeling: String, shoe: String, notes: String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var titleText by remember { mutableStateOf(run.title) }
     var selectedFeeling by remember { mutableStateOf(run.feelingTag) }
     var shoeText by remember { mutableStateOf(run.shoeName) }
+    var notesText by remember { mutableStateOf(run.notes) }
     var showShareSheet by remember { mutableStateOf(false) }
 
     val feelingOptions = listOf("🔥 Kuat", "🚀 Luar Biasa", "✨ Segar", "💨 Cepat", "💪 Capek Tapi Puas")
@@ -144,7 +136,7 @@ fun RunSummaryScreen(
                     .padding(16.dp)
             ) {
                 Button(
-                    onClick = { onSaveAndClose(titleText, selectedFeeling, shoeText) },
+                    onClick = { onSaveAndClose(titleText, selectedFeeling, shoeText, notesText) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -163,7 +155,7 @@ fun RunSummaryScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "SIMPAN & SINKRONKAN",
+                        text = "SIMPAN KE JURNAL PRIBADI",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
@@ -187,7 +179,7 @@ fun RunSummaryScreen(
                     OutlinedTextField(
                         value = titleText,
                         onValueChange = { titleText = it },
-                        label = { Text("Judul Sesi Lari", color = TextSecondary) },
+                        label = { Text("Judul Sesi", color = TextSecondary) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = ElectricCyan,
@@ -342,24 +334,23 @@ fun RunSummaryScreen(
                 }
             }
 
-            // 3. Interactive Pace Heatmap Canvas
+            // 3. Real Geographic Route & Pace Heatmap
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "RUTE & HEATMAP PACE",
+                        text = "PETA RUTE & HEATMAP KECEPATAN",
                         style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
 
-                    PaceHeatmapCanvas(
+                    RealRouteMapView(
                         points = run.routePoints,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(240.dp),
-                        isLive = false,
-                        showGrid = true
+                            .height(280.dp),
+                        isLive = false
                     )
                 }
             }
@@ -375,7 +366,7 @@ fun RunSummaryScreen(
                             label = "Cadence Rata-rata",
                             value = "${run.avgCadenceSpm}",
                             unit = "SPM",
-                            icon = Icons.Default.DirectionsRun,
+                            icon = if (run.activityType == "Lari") Icons.Default.DirectionsRun else Icons.Default.DirectionsWalk,
                             accentColor = NeonLime,
                             modifier = Modifier.weight(1f)
                         )
@@ -424,116 +415,68 @@ fun RunSummaryScreen(
                 ElevationProfileCanvas(splits = run.splits)
             }
 
-            // 6. Gemini 3.1 Pro High Thinking Deep Analysis Card
+            // 6. Recovery & Personal Notes Section
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(SurfaceDark)
-                        .border(1.dp, ElectricCyan.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                        .border(1.dp, SurfaceBorder, RoundedCornerShape(20.dp))
                         .padding(18.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "ESTIMASI PEMULIHAN & CATATAN PRIBADI",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonLime,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(SurfaceElevated)
+                                .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(ElectricCyan.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = "AI Coach",
-                                        tint = ElectricCyan,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                Column {
-                                    Text(
-                                        text = "APEX INTELLIGENCE AUDIT",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = TextPrimary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Powered by Gemini 3.1 Pro (High Thinking)",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = ElectricCyan
-                                    )
-                                }
-                            }
-
-                            if (isLoadingAi) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = NeonLime,
-                                    strokeWidth = 2.5.dp
-                                )
-                            } else {
-                                IconButton(
-                                    onClick = onGenerateAiAudit,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(SurfaceElevated)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = "Refresh AI",
-                                        tint = NeonLime,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        if (run.aiAnalysis.isNullOrBlank()) {
-                            Text(
-                                text = "Dapatkan audit fisiologi biomekanik, stabilitas pace, dan rekomendasi pemulihan dari AI Coach kelas dunia.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
-                            )
-
-                            Button(
-                                onClick = onGenerateAiAudit,
-                                enabled = !isLoadingAi,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = ElectricCyan,
-                                    contentColor = DarkObsidian
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = "Audit",
-                                    tint = DarkObsidian
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(text = "Rekomendasi Waktu Istirahat", fontSize = 11.sp, color = TextSecondary)
                                 Text(
-                                    text = "MULAI AUDIT HIGH THINKING",
-                                    fontWeight = FontWeight.Black
+                                    text = if (run.distanceKm > 8.0) "24 - 36 Jam" else "18 - 24 Jam",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
                                 )
                             }
-                        } else {
                             Text(
-                                text = run.aiAnalysis,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary,
-                                lineHeight = 22.sp
+                                text = "💧 Minum 500ml",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ElectricCyan
                             )
                         }
+
+                        OutlinedTextField(
+                            value = notesText,
+                            onValueChange = { notesText = it },
+                            label = { Text("Catatan Latihan / Evaluasi Diri", color = TextSecondary) },
+                            placeholder = { Text("Contoh: Rasanya ringan di 3km awal, tanjakan terasa menantang.", color = TextMuted) },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonLime,
+                                unfocusedBorderColor = SurfaceBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary,
+                                focusedContainerColor = SurfaceElevated,
+                                unfocusedContainerColor = SurfaceElevated
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     }
                 }
             }
@@ -600,13 +543,12 @@ fun RunSummaryScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        PaceHeatmapCanvas(
+                        RealRouteMapView(
                             points = run.routePoints,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(140.dp),
-                            isLive = false,
-                            showGrid = false
+                            isLive = false
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))

@@ -4,77 +4,62 @@ on:
   push:
     branches:
       - main
-      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
-    name: Build & Release APK
+    name: Build Android Release APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
 
-      - name: Setup Gradle 9.3.1
-        uses: gradle/actions/setup-gradle@v4
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew || true
+
+      - name: Build Debug & Release APK
+        run: ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
+
+      - name: Find and Prepare APK
+        id: apk_finder
+        run: |
+          mkdir -p release_apks
+          find app/build/outputs/apk -name "*.apk" -exec cp {} release_apks/ \;
+          echo "Found APK files:"
+          ls -la release_apks/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
         with:
-          gradle-version: '9.3.1'
-
-      - name: Prepare Environment Files
-        run: |
-          if [ ! -f .env ]; then
-            cp .env.example .env
-          fi
-          # In case GEMINI_API_KEY secret is configured in repo settings
-          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
-            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
-          fi
-
-      - name: Generate Keystore for Release Signing (if needed)
-        run: |
-          if [ ! -f my-upload-key.jks ]; then
-            keytool -genkey -v -keystore my-upload-key.jks \
-              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass android -keypass android \
-              -dname "CN=ApexStride, OU=ApexStride, O=ApexStride, L=City, S=State, C=ID"
-            echo "STORE_PASSWORD=android" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=android" >> $GITHUB_ENV
-            echo "KEYSTORE_PATH=$(pwd)/my-upload-key.jks" >> $GITHUB_ENV
-          fi
-
-      - name: Build Release APK
-        run: gradle :app:assembleRelease
-
-      - name: Prepare APK Asset
-        run: |
-          mkdir -p release-assets
-          cp app/build/outputs/apk/release/*.apk release-assets/ApexStride-release.apk
+          name: app-release-apk
+          path: release_apks/*.apk
 
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "ApexStride Release v1.0.${{ github.run_number }}"
+          files: release_apks/*.apk
+          tag_name: ${{ github.ref_name }}
+          name: "Apex Stride Release ${{ github.ref_name }}"
           body: |
-            ### 🏃 ApexStride APK Release
-            Build otomatis dari branch `${{ github.ref_name }}` (Commit: `${{ github.sha }}`).
-
-            #### 📲 Cara Install:
-            1. Download file `ApexStride-release.apk` di bawah ini.
-            2. Buka file di perangkat Android Anda.
-            3. Izinkan *"Install from Unknown Sources"* jika diminta oleh sistem.
-          files: release-assets/ApexStride-release.apk
-          draft: false
-          prerelease: false
+            ## 🏃‍♂️ Apex Stride APK Release
+            
+            Aplikasi pelacak lari atletik mandiri:
+            - **Pelacakan GPS Presisi**: Hanya menghitung perpindahan nyata saat berlari/berjalan (bukan ayunan tangan di tempat).
+            - **Peta Rute 3D Interaktif**: Visualisasi rute dan elevasi dengan heatmap kecepatan 3 dimensi.
+            - **Analisis Kinerja Atletik**: VO2 Max estimate, zona detak jantung, kalkulator pace & split lomba.
+            - **Riwayat & Jurnal Pribadi**: Catatan latihan lokal Room & sinkronisasi privat.
+            
+            Unduh file `.apk` di bawah dan pasang di perangkat Android Anda.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

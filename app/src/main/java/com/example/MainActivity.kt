@@ -32,14 +32,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -51,7 +48,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -61,24 +57,18 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.ui.AppDestination
 import com.example.ui.MainViewModel
-import com.example.ui.screens.AiCoachScreen
-import com.example.ui.screens.CommunityScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LiveRunScreen
 import com.example.ui.screens.PerformanceAnalyticsScreen
 import com.example.ui.screens.ProfileScreen
-import com.example.ui.screens.RoutesExploreScreen
+import com.example.ui.screens.RunHistoryScreen
 import com.example.ui.screens.RunSummaryScreen
 import com.example.ui.theme.ApexStrideTheme
 import com.example.ui.theme.DarkObsidian
-import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.NeonLime
 import com.example.ui.theme.SurfaceBorder
 import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.SurfaceElevated
 import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -126,12 +116,8 @@ fun ApexStrideApp(viewModel: MainViewModel) {
     val userProfile by viewModel.userProfile.collectAsState()
     val allRuns by viewModel.allRuns.collectAsState()
     val performanceMetrics by viewModel.performanceMetrics.collectAsState()
-    val communityPosts by viewModel.communityPosts.collectAsState()
-    val challenges by viewModel.challenges.collectAsState()
-    val communityRoutes by viewModel.communityRoutes.collectAsState()
     val liveTelemetry by viewModel.liveTelemetry.collectAsState()
     val summaryRun by viewModel.summaryRun.collectAsState()
-    val isLoadingAi by viewModel.isLoadingAi.collectAsState()
     val isSignedIn by viewModel.isSignedIn.collectAsState()
 
     // Handle Hardware Back Button
@@ -145,9 +131,8 @@ fun ApexStrideApp(viewModel: MainViewModel) {
 
     val showBottomNav = currentDest in listOf(
         AppDestination.HOME,
+        AppDestination.HISTORY,
         AppDestination.ANALYTICS,
-        AppDestination.COACH,
-        AppDestination.COMMUNITY,
         AppDestination.PROFILE
     )
 
@@ -157,7 +142,7 @@ fun ApexStrideApp(viewModel: MainViewModel) {
                 ApexBottomNavBar(
                     currentDestination = currentDest,
                     onNavigate = { dest -> viewModel.navigateTo(dest) },
-                    onStartRunClick = { viewModel.startRun(false) }
+                    onStartRunClick = { viewModel.startRun(isSimulation = false, activityType = "Lari") }
                 )
             }
         },
@@ -178,9 +163,18 @@ fun ApexStrideApp(viewModel: MainViewModel) {
                         HomeScreen(
                             userProfile = userProfile,
                             recentRuns = allRuns,
-                            onStartRun = { isSim -> viewModel.startRun(isSim) },
+                            onStartRun = { isSim, actType -> viewModel.startRun(isSim, actType) },
                             onViewRunDetail = { runId -> viewModel.viewRunDetail(runId) },
-                            onNavigateToCoach = { viewModel.navigateTo(AppDestination.COACH) }
+                            onNavigateToAnalytics = { viewModel.navigateTo(AppDestination.ANALYTICS) },
+                            onNavigateToHistory = { viewModel.navigateTo(AppDestination.HISTORY) }
+                        )
+                    }
+
+                    AppDestination.HISTORY -> {
+                        RunHistoryScreen(
+                            runs = allRuns,
+                            onViewRunDetail = { runId -> viewModel.viewRunDetail(runId) },
+                            onDeleteRun = { runId -> viewModel.deleteRun(runId) }
                         )
                     }
 
@@ -198,10 +192,8 @@ fun ApexStrideApp(viewModel: MainViewModel) {
                         summaryRun?.let { run ->
                             RunSummaryScreen(
                                 run = run,
-                                isLoadingAi = isLoadingAi,
-                                onGenerateAiAudit = { viewModel.generateAiAuditForSummary(run) },
-                                onSaveAndClose = { title, feeling, shoe ->
-                                    viewModel.saveSummaryAndClose(title, feeling, shoe)
+                                onSaveAndClose = { title, feeling, shoe, notes ->
+                                    viewModel.saveSummaryAndClose(title, feeling, shoe, notes)
                                 },
                                 onClose = { viewModel.closeSummaryWithoutSaving() }
                             )
@@ -211,38 +203,7 @@ fun ApexStrideApp(viewModel: MainViewModel) {
                     AppDestination.ANALYTICS -> {
                         PerformanceAnalyticsScreen(
                             metrics = performanceMetrics,
-                            recentRuns = allRuns,
-                            onAskAiCoach = { viewModel.navigateTo(AppDestination.COACH) }
-                        )
-                    }
-
-                    AppDestination.ROUTES -> {
-                        RoutesExploreScreen(
-                            routes = communityRoutes,
-                            onToggleBookmark = { id -> viewModel.toggleBookmarkRoute(id) },
-                            onStartRouteRun = { route -> viewModel.startRouteRun(route) }
-                        )
-                    }
-
-                    AppDestination.COACH -> {
-                        AiCoachScreen()
-                    }
-
-                    AppDestination.COMMUNITY -> {
-                        CommunityScreen(
-                            posts = communityPosts,
-                            challenges = challenges,
-                            routes = communityRoutes,
-                            onToggleBoost = { postId -> viewModel.toggleBoost(postId) },
-                            onToggleJoinChallenge = { chId -> viewModel.toggleJoinChallenge(chId) },
-                            onToggleBookmarkRoute = { routeId -> viewModel.toggleBookmarkRoute(routeId) },
-                            onStartRouteRun = { route -> viewModel.startRouteRun(route) },
-                            onCreateCustomChallenge = { title, sub, target, days, cat, badge, xp ->
-                                viewModel.createCustomChallenge(title, sub, target, days, cat, badge, xp)
-                            },
-                            onCheerParticipant = { chId, uId ->
-                                viewModel.cheerParticipant(chId, uId)
-                            }
+                            recentRuns = allRuns
                         )
                     }
 
@@ -295,11 +256,11 @@ fun ApexBottomNavBar(
                 )
 
                 NavBarItem(
-                    icon = Icons.Default.Insights,
-                    label = "Analisis",
-                    isSelected = currentDestination == AppDestination.ANALYTICS,
-                    onClick = { onNavigate(AppDestination.ANALYTICS) },
-                    testTag = "nav_analytics"
+                    icon = Icons.Default.History,
+                    label = "Riwayat",
+                    isSelected = currentDestination == AppDestination.HISTORY,
+                    onClick = { onNavigate(AppDestination.HISTORY) },
+                    testTag = "nav_history"
                 )
 
                 // Central Floating Action Button for Instant Run
@@ -321,19 +282,11 @@ fun ApexBottomNavBar(
                 }
 
                 NavBarItem(
-                    icon = Icons.Default.Groups,
-                    label = "Tribe & Arena",
-                    isSelected = currentDestination == AppDestination.COMMUNITY,
-                    onClick = { onNavigate(AppDestination.COMMUNITY) },
-                    testTag = "nav_community"
-                )
-
-                NavBarItem(
-                    icon = Icons.Default.AutoAwesome,
-                    label = "Coach AI",
-                    isSelected = currentDestination == AppDestination.COACH,
-                    onClick = { onNavigate(AppDestination.COACH) },
-                    testTag = "nav_coach"
+                    icon = Icons.Default.Insights,
+                    label = "Analisis",
+                    isSelected = currentDestination == AppDestination.ANALYTICS,
+                    onClick = { onNavigate(AppDestination.ANALYTICS) },
+                    testTag = "nav_analytics"
                 )
 
                 NavBarItem(
@@ -377,7 +330,7 @@ fun NavBarItem(
             style = MaterialTheme.typography.labelSmall,
             color = if (isSelected) NeonLime else TextMuted,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = 9.sp
+            fontSize = 10.sp
         )
     }
 }

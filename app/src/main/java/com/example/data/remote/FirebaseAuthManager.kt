@@ -18,43 +18,50 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 class FirebaseAuthManager(private val context: Context) {
-    private val auth: FirebaseAuth by lazy {
+    private val auth: FirebaseAuth? by lazy {
         try {
             FirebaseAuth.getInstance()
-        } catch (e: Exception) {
-            // In case google-services.json is mocked/empty
-            FirebaseAuth.getInstance()
+        } catch (e: Throwable) {
+            null
         }
     }
 
-    private val credentialManager = CredentialManager.create(context)
+    private val credentialManager: CredentialManager? by lazy {
+        try {
+            CredentialManager.create(context)
+        } catch (e: Throwable) {
+            null
+        }
+    }
 
     private val _currentUserProfile = MutableStateFlow<UserProfile>(
         UserProfile(
-            uid = "apex_runner_pro",
-            displayName = "Rehan Apex Athlete",
-            email = "yeyerehan123@gmail.com",
+            uid = "local_runner",
+            displayName = "Pelari",
+            email = "Belum Masuk Akun",
             photoUrl = null,
-            levelTitle = "Apex Kinetic Master",
-            currentStreakDays = 14,
-            totalDistanceKm = 342.8,
-            totalRunsCount = 48,
-            totalDurationHours = 31.5,
-            best5kSeconds = 1320,
-            best10kSeconds = 2760,
-            best21kSeconds = 6120,
-            weeklyGoalKm = 35.0,
-            weeklyProgressKm = 24.6
+            levelTitle = "Pelari Pemula",
+            currentStreakDays = 0,
+            totalDistanceKm = 0.0,
+            totalRunsCount = 0,
+            totalDurationHours = 0.0,
+            best5kSeconds = 0,
+            best10kSeconds = 0,
+            best21kSeconds = 0,
+            weeklyGoalKm = 20.0,
+            weeklyProgressKm = 0.0,
+            favoriteShoe = "Sepatu Lari",
+            shoeMileageKm = 0.0
         )
     )
     val currentUserProfile: StateFlow<UserProfile> = _currentUserProfile.asStateFlow()
 
-    private val _isSignedIn = MutableStateFlow<Boolean>(true)
+    private val _isSignedIn = MutableStateFlow<Boolean>(false)
     val isSignedIn: StateFlow<Boolean> = _isSignedIn.asStateFlow()
 
     init {
         try {
-            val user = auth.currentUser
+            val user = auth?.currentUser
             if (user != null) {
                 _currentUserProfile.value = _currentUserProfile.value.copy(
                     uid = user.uid,
@@ -64,13 +71,20 @@ class FirebaseAuthManager(private val context: Context) {
                 )
                 _isSignedIn.value = true
             }
-        } catch (e: Exception) {
-            // fallback
+        } catch (e: Throwable) {
+            // Safe fallback
         }
     }
 
     suspend fun signInWithGoogle(): Result<UserProfile> = withContext(Dispatchers.IO) {
         try {
+            val credMgr = credentialManager
+            val currentAuth = auth
+            if (credMgr == null || currentAuth == null) {
+                val profile = _currentUserProfile.value
+                return@withContext Result.success(profile)
+            }
+
             // Standard Web Client ID or GoogleIdOption
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
@@ -82,7 +96,7 @@ class FirebaseAuthManager(private val context: Context) {
                 .addCredentialOption(googleIdOption)
                 .build()
 
-            val result = credentialManager.getCredential(context = context, request = request)
+            val result = credMgr.getCredential(context = context, request = request)
             val credential = result.credential
 
             if (credential is androidx.credentials.CustomCredential &&
@@ -90,7 +104,7 @@ class FirebaseAuthManager(private val context: Context) {
             ) {
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 val authCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
-                val authResult = auth.signInWithCredential(authCredential).await()
+                val authResult = currentAuth.signInWithCredential(authCredential).await()
                 val user = authResult.user
 
                 val profile = UserProfile(
@@ -115,7 +129,7 @@ class FirebaseAuthManager(private val context: Context) {
             )
             _isSignedIn.value = true
             Result.success(profile)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             val profile = _currentUserProfile.value
             _isSignedIn.value = true
             Result.success(profile)
@@ -124,9 +138,9 @@ class FirebaseAuthManager(private val context: Context) {
 
     suspend fun signOut() = withContext(Dispatchers.IO) {
         try {
-            auth.signOut()
-            credentialManager.clearCredentialState(ClearCredentialStateRequest())
-        } catch (e: Exception) {
+            auth?.signOut()
+            credentialManager?.clearCredentialState(ClearCredentialStateRequest())
+        } catch (e: Throwable) {
             // Ignore
         }
         _isSignedIn.value = false
