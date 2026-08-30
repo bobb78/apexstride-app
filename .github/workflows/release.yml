@@ -41,7 +41,10 @@ jobs:
           if [ ! -f "debug.keystore" ]; then
             keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, OU=Android, O=Google, L=Mountain View, S=California, C=US"
           fi
-          keytool -genkey -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=ApexStride, OU=App, O=Apex, L=City, S=State, C=ID" || true
+          if [ ! -f "my-upload-key.jks" ]; then
+            keytool -genkey -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=ApexStride, OU=App, O=Apex, L=City, S=State, C=ID" || true
+          fi
+          chmod +x gradlew || true
 
       - name: Build Release & Debug APK
         run: |
