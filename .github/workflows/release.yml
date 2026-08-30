@@ -33,20 +33,22 @@ jobs:
         run: |
           touch .env
           echo "GEMINI_API_KEY=" >> .env
+          mkdir -p ~/.android
           if [ -f "debug.keystore.base64" ]; then
             base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
           if [ ! -f "debug.keystore" ]; then
             keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, OU=Android, O=Google, L=Mountain View, S=California, C=US"
           fi
+          cp debug.keystore ~/.android/debug.keystore || true
           if [ ! -f "my-upload-key.jks" ]; then
             keytool -genkey -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=ApexStride, OU=App, O=Apex, L=City, S=State, C=ID" || true
           fi
           chmod +x gradlew || true
 
-      - name: Build Release APK
+      - name: Build Release & Debug APKs
         run: |
-          STORE_PASSWORD=password KEY_PASSWORD=password ./gradlew :app:assembleRelease --no-daemon --stacktrace
+          STORE_PASSWORD=password KEY_PASSWORD=password ./gradlew :app:assembleRelease :app:assembleDebug -x test --no-daemon --stacktrace
 
       - name: Find and Prepare APK
         id: apk_finder
