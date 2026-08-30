@@ -36,10 +36,16 @@ jobs:
           fi
           chmod +x gradlew
 
+      - name: Create Dummy Secrets and Keystore
+        run: |
+          touch .env
+          echo "GEMINI_API_KEY=" >> .env
+          keytool -genkey -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=ApexStride, OU=App, O=Apex, L=City, S=State, C=ID" || true
+
       - name: Build Debug & Release APK
         run: |
-          ./gradlew assembleDebug --stacktrace
-          ./gradlew assembleRelease --stacktrace || true
+          ./gradlew assembleDebug --stacktrace --no-daemon
+          STORE_PASSWORD=password KEY_PASSWORD=password ./gradlew assembleRelease --stacktrace --no-daemon || true
 
       - name: Find and Prepare APK
         id: apk_finder
