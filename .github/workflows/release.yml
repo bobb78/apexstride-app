@@ -72,10 +72,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release_apks/*.apk
-          tag_name: ${{ github.ref_name }}
-          name: "ApexStride Release ${{ github.ref_name }}"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          name: "ApexStride APK v1.0.${{ github.run_number }}"
+          make_latest: true
           body: |
-            ## 🏃‍♂️ ApexStride APK Release
+            ## 🏃‍♂️ ApexStride APK Release (v1.0.${{ github.run_number }})
             
             Aplikasi pelacak lari atletik modern:
             - **Peta Asli & Heatmap Satelit**: Peta jalan & citra satelit bumi asli dengan visualisasi rute interaktif.
